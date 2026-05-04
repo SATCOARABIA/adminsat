@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DocTrack</title>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#ffffff;--bg2:#f7f7f5;--bg3:#efefeb;
+  --text:#1a1a18;--text2:#6b6a63;--text3:#a8a89f;
+  --border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.18);
+  --blue:#185FA5;--bluebg:#E6F1FB;--bluetxt:#0C447C;
+  --green:#3B6D11;--greenbg:#EAF3DE;--greentxt:#27500A;
+  --amber:#854F0B;--amberbg:#FAEEDA;--ambertxt:#633806;
+  --red:#A32D2D;--redbg:#FCEBEB;--redtxt:#791F1F;
+  --purple:#534AB7;--purplebg:#EEEDFE;--purpletxt:#3C3489;
+  --teal:#0F6E56;--tealbg:#E1F5EE;--tealtxt:#085041;
+  --r:8px;--rl:12px
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg2);color:var(--text);font-size:14px;line-height:1.5}
+
+/* ── SETUP / LOGIN ── */
+.full-center{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+.setup-card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--rl);padding:32px;width:100%;max-width:480px}
+.brand{font-size:20px;font-weight:700;margin-bottom:4px}
+.brand-sub{font-size:12px;color:var(--text2);margin-bottom:24px}
+.tabs{display:flex;gap:0;border:0.5px solid var(--border2);border-radius:var(--r);overflow:hidden;margin-bottom:20px}
+.tab{flex:1;padding:9px;text-align:center;font-size:13px;cursor:pointer;background:var(--bg2);color:var(--text2);border:none;font-family:inherit;transition:background .15s}
+.tab.active{background:var(--bg);color:var(--text);font-weight:500}
+.role-selector{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.role-card{border:1.5px solid var(--border);border-radius:var(--r);padding:14px 12px;cursor:pointer;text-align:center;transition:border-color .15s,background .15s}
+.role-card:hover{border-color:var(--border2)}
+.role-card.selected{border-color:var(--blue);background:var(--bluebg)}
+.role-icon{font-size:22px;margin-bottom:6px}
+.role-name{font-size:13px;font-weight:500}
+.role-desc{font-size:11px;color:var(--text2);margin-top:2px}
+.form-group{margin-bottom:14px}
+label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:4px}
+input,select,textarea{width:100%;padding:9px 11px;font-size:13px;border:0.5px solid var(--border2);border-radius:var(--r);background:var(--bg);color:var(--text);font-family:inherit}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 2px rgba(24,95,165,.1)}
+.btn{padding:9px 16px;font-size:13px;border:0.5px solid var(--border2);background:var(--bg);border-radius:var(--r);cursor:pointer;color:var(--text);font-family:inherit;transition:background .15s}
+.btn:hover{background:var(--bg2)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-primary:hover{background:#0C447C}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-danger{color:var(--red);border-color:#F09595}
+.btn-danger:hover{background:var(--redbg)}
+.btn-ghost{border-color:transparent;background:transparent}
+.btn-ghost:hover{background:var(--bg2);border-color:var(--border)}
+.err{font-size:12px;color:var(--red);margin-top:8px;display:none}
+.setup-link{font-size:12px;color:var(--blue);text-decoration:none;display:inline-flex;align-items:center;gap:3px}
+.setup-link:hover{text-decoration:underline}
+.step{display:flex;gap:12px;padding:12px 0;border-bottom:0.5px solid var(--border)}
+.step:last-child{border-bottom:none}
+.step-n{width:24px;height:24px;border-radius:50%;background:var(--bluebg);color:var(--bluetxt);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* ── APP SHELL ── */
+#app{display:none;height:100vh;overflow:hidden}
+.layout{display:flex;height:100%}
+.sidebar{width:214px;flex-shrink:0;border-right:0.5px solid var(--border);display:flex;flex-direction:column;background:var(--bg);overflow-y:auto}
+.sb-logo{padding:16px;border-bottom:0.5px solid var(--border)}
+.sb-logo-name{font-size:15px;font-weight:700}
+.sb-logo-role{font-size:11px;margin-top:2px;padding:2px 7px;border-radius:100px;display:inline-block}
+.role-admin{background:var(--purplebg);color:var(--purpletxt)}
+.role-hr{background:var(--tealbg);color:var(--tealtxt)}
+nav{padding:8px 0;flex:1}
+.ni{display:flex;align-items:center;gap:8px;padding:8px 16px;font-size:13px;color:var(--text2);cursor:pointer;border-left:2px solid transparent}
+.ni:hover{background:var(--bg2);color:var(--text)}
+.ni.active{background:var(--bg2);color:var(--text);font-weight:500;border-left-color:var(--blue)}
+.ni-ico{width:15px;text-align:center;font-size:13px;flex-shrink:0}
+.sb-foot{padding:12px 16px;border-top:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.conn-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:5px}
+.conn-txt{font-size:11px;color:var(--text3)}
+
+.main{flex:1;overflow-y:auto;background:var(--bg2)}
+.page{display:none;padding:24px}
+.page.active{display:block}
+.ph{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:gap}
+.pt{font-size:18px;font-weight:700}
+.ph-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ── STATS ── */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}
+.stat{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:14px 16px}
+.stat-lbl{font-size:12px;color:var(--text2);margin-bottom:4px}
+.stat-val{font-size:24px;font-weight:700}
+.c-red{color:var(--red)}.c-amber{color:var(--amber)}.c-green{color:var(--green)}.c-blue{color:var(--blue)}.c-purple{color:var(--purple)}
+
+/* ── CARDS & TABLES ── */
+.card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--rl);padding:20px;margin-bottom:16px}
+.card-ttl{font-size:13px;font-weight:500;color:var(--text2);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.tbl-wrap{overflow-x:auto;margin:-20px;padding:0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:9px 14px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;border-bottom:0.5px solid var(--border);white-space:nowrap;background:var(--bg2)}
+td{padding:10px 14px;border-bottom:0.5px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg2)}
+.badge{display:inline-block;padding:3px 8px;border-radius:100px;font-size:11px;font-weight:500;white-space:nowrap}
+.b-red{background:var(--redbg);color:var(--redtxt)}
+.b-amber{background:var(--amberbg);color:var(--ambertxt)}
+.b-green{background:var(--greenbg);color:var(--greentxt)}
+.b-blue{background:var(--bluebg);color:var(--bluetxt)}
+.b-gray{background:var(--bg3);color:var(--text2)}
+.b-purple{background:var(--purplebg);color:var(--purpletxt)}
+.b-teal{background:var(--tealbg);color:var(--tealtxt)}
+
+/* ── EMPLOYEES ── */
+.emp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.ec{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--rl);padding:16px;cursor:pointer;transition:border-color .15s}
+.ec:hover{border-color:var(--border2)}
+.av{width:42px;height:42px;border-radius:50%;background:var(--bluebg);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:var(--bluetxt);flex-shrink:0}
+.ec-name{font-size:14px;font-weight:600;margin-bottom:1px}
+.ec-meta{font-size:12px;color:var(--text2);margin-bottom:8px}
+.ec-badges{display:flex;gap:4px;flex-wrap:wrap}
+.locked{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:4px}
+
+/* ── FILTER ── */
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.fb{padding:5px 12px;font-size:12px;border:0.5px solid var(--border);background:transparent;border-radius:100px;cursor:pointer;color:var(--text2);font-family:inherit}
+.fb:hover,.fb.on{background:var(--bg3);border-color:var(--border2);color:var(--text)}
+
+/* ── MODAL ── */
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
+.ov.open{display:flex}
+.modal{background:var(--bg);border-radius:var(--rl);border:0.5px solid var(--border);width:600px;max-width:100%;margin:auto}
+.mh{padding:18px 20px 14px;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.mt{font-size:15px;font-weight:600}
+.mc{background:none;border:none;font-size:22px;cursor:pointer;color:var(--text2);line-height:1;padding:0 2px}
+.mb{padding:20px}
+.mf{padding:14px 20px;border-top:0.5px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.s2{grid-column:1/-1}
+.section-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:16px 0 8px;padding-bottom:6px;border-bottom:0.5px solid var(--border)}
+.admin-section{background:var(--purplebg);border-radius:var(--r);padding:14px;margin-top:8px}
+.admin-label{font-size:11px;font-weight:600;color:var(--purpletxt);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;display:flex;align-items:center;gap:5px}
+
+/* ── UPLOAD ── */
+.upzone{border:1.5px dashed var(--border2);border-radius:var(--r);padding:22px;text-align:center;cursor:pointer;background:var(--bg2);position:relative;transition:border-color .15s}
+.upzone:hover{border-color:var(--blue);background:var(--bluebg)}
+.upzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.ai-chip{display:inline-flex;align-items:center;gap:5px;background:var(--purplebg);color:var(--purpletxt);padding:2px 9px;border-radius:100px;font-size:11px;font-weight:500;margin-bottom:6px}
+.ex-box{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:12px;display:none}
+.div{display:flex;align-items:center;gap:10px;margin:12px 0;font-size:12px;color:var(--text3)}
+.div::before,.div::after{content:'';flex:1;height:0.5px;background:var(--border)}
+
+/* ── TOGGLE ── */
+.tgl{position:relative;width:36px;height:20px;flex-shrink:0}
+.tgl input{opacity:0;width:0;height:0}
+.tgl-s{position:absolute;inset:0;background:var(--border2);border-radius:100px;cursor:pointer;transition:.2s}
+.tgl-s::before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.tgl input:checked+.tgl-s{background:var(--blue)}
+.tgl input:checked+.tgl-s::before{transform:translateX(16px)}
+
+/* ── ALERTS ── */
+.ar{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--border)}
+.ar:last-child{border-bottom:none}
+.adot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px}
+
+/* ── EMPLOYEE DETAIL ── */
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.drow{padding:8px 0;border-bottom:0.5px solid var(--border);display:contents}
+.dk{font-size:12px;color:var(--text2);padding:9px 0 9px 0}
+.dv{font-size:13px;padding:9px 0;text-align:right}
+
+/* ── SALARY SUMMARY ── */
+.sal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.sal-tile{background:var(--bg2);border-radius:var(--r);padding:12px 14px;border:0.5px solid var(--border)}
+.sal-lbl{font-size:11px;color:var(--text2);margin-bottom:3px}
+.sal-val{font-size:18px;font-weight:700}
+
+/* TOAST */
+#toast{position:fixed;bottom:20px;right:20px;padding:10px 16px;border-radius:var(--r);font-size:13px;z-index:9999;opacity:0;transition:opacity .25s;pointer-events:none;max-width:320px}
+
+/* SPINNER */
+.spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .65s linear infinite;vertical-align:middle;margin-right:5px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+.readonly-field{background:var(--bg2);color:var(--text2);cursor:not-allowed}
+.lock-icon{font-size:11px;margin-right:3px}
+
+@media(max-width:680px){
+  .sidebar{width:48px}.ni span{display:none}.sb-logo-name,.sb-logo-role,.sb-foot .conn-txt{display:none}
+  .stats{grid-template-columns:1fr 1fr}.fg{grid-template-columns:1fr}.s2{grid-column:auto}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════ SETUP SCREEN ═══════════════════════════════ -->
+<div id="setup-screen" class="full-center">
+  <div class="setup-card">
+    <div class="brand">DocTrack</div>
+    <div class="brand-sub">Document &amp; Employee Management</div>
+
+    <!-- FIRST-TIME SETUP BANNER (shown only before backend is configured) -->
+    <div id="first-time-banner" style="display:none;background:var(--amberbg);border:0.5px solid var(--ambertxt);border-radius:var(--r);padding:12px 14px;margin-bottom:18px;font-size:12px;color:var(--ambertxt)">
+      <strong>First-time setup</strong> — configure your backend before logging in.
+    </div>
+
+    <!-- SETUP TABS (only shown before configured) -->
+    <div id="setup-tabs-wrap" style="display:none">
+      <div class="tabs" style="margin-bottom:20px">
+        <button class="tab active" id="stab-configure" onclick="showSetupTab('configure')">1. Connect backend</button>
+        <button class="tab" id="stab-passwords" onclick="showSetupTab('passwords')">2. Set passwords</button>
+      </div>
+
+      <!-- CONFIGURE -->
+      <div id="stab-configure-body">
+        <div style="margin-bottom:16px">
+          <div class="step"><div class="step-n">1</div><div><div style="font-weight:500;font-size:13px;margin-bottom:3px">Create a free Supabase project</div><div style="font-size:12px;color:var(--text2)">supabase.com → New project → Settings → API → copy URL &amp; anon key</div><a class="setup-link" href="https://supabase.com/dashboard" target="_blank" style="margin-top:4px;display:inline-flex">Open Supabase ↗</a></div></div>
+          <div class="step"><div class="step-n">2</div><div><div style="font-weight:500;font-size:13px;margin-bottom:3px">Run the schema</div><div style="font-size:12px;color:var(--text2)">SQL Editor → paste contents of <code>schema.sql</code> → Run</div></div></div>
+          <div class="step"><div class="step-n">3</div><div><div style="font-weight:500;font-size:13px;margin-bottom:3px">Get a free Resend API key</div><div style="font-size:12px;color:var(--text2)">resend.com → API Keys → Create. Free tier: 3,000 emails/month.</div><a class="setup-link" href="https://resend.com/api-keys" target="_blank" style="margin-top:4px;display:inline-flex">Open Resend ↗</a></div></div>
+        </div>
+        <div class="form-group"><label>Supabase project URL</label><input type="text" id="cfg-url" placeholder="https://xxxx.supabase.co"></div>
+        <div class="form-group"><label>Supabase anon key</label><input type="password" id="cfg-key" placeholder="eyJhbGci…"></div>
+        <div class="form-group"><label>Resend API key</label><input type="password" id="cfg-resend" placeholder="re_xxxx…"></div>
+        <div class="form-group"><label>Sender email (verified in Resend)</label><input type="email" id="cfg-from" placeholder="hr@company.com"></div>
+        <button class="btn btn-primary" style="width:100%" onclick="saveConfig()">Save &amp; continue →</button>
+        <div class="err" id="cfg-err"></div>
+      </div>
+
+      <!-- PASSWORDS -->
+      <div id="stab-passwords-body" style="display:none">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Set your Admin and HR passwords. You can change these later from inside the app (Admin only).</div>
+        <div class="form-group"><label>Admin password *</label><input type="password" id="pw-admin" placeholder="Choose a strong password"></div>
+        <div class="form-group"><label>HR password *</label><input type="password" id="pw-hr" placeholder="Choose a strong password"></div>
+        <button class="btn btn-primary" style="width:100%" onclick="savePasswordsSetup()">Save passwords &amp; go to login →</button>
+        <div class="err" id="pw-err"></div>
+      </div>
+
+      <div style="border-top:0.5px solid var(--border);margin-top:18px;padding-top:14px;text-align:center">
+        <a class="setup-link" href="#" onclick="skipToLogin();return false">Skip — use demo mode instead</a>
+      </div>
+    </div>
+
+    <!-- LOGIN FORM (shown after setup or on return visits) -->
+    <div id="login-form-wrap">
+      <div class="role-selector">
+        <div class="role-card selected" id="rc-admin" onclick="selectRole('admin')">
+          <div class="role-icon">🔐</div>
+          <div class="role-name">Admin</div>
+          <div class="role-desc">Full access incl. salary &amp; finances</div>
+        </div>
+        <div class="role-card" id="rc-hr" onclick="selectRole('hr')">
+          <div class="role-icon">👥</div>
+          <div class="role-name">HR</div>
+          <div class="role-desc">Employee &amp; document management</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="login-pw" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Login</button>
+      <div class="err" id="login-err">Incorrect password. Please try again.</div>
+      <div id="demo-link-wrap" style="margin-top:14px;font-size:12px;color:var(--text2);text-align:center;display:none">
+        <a class="setup-link" href="#" onclick="useDemoMode();return false">Use demo mode (no backend)</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ APP SHELL ═══════════════════════════════ -->
+<div id="app">
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sb-logo">
+        <div class="sb-logo-name">DocTrack</div>
+        <div class="sb-logo-role" id="role-badge"></div>
+      </div>
+      <nav id="sidebar-nav"></nav>
+      <div class="sb-foot">
+        <div><span class="conn-dot"></span><span class="conn-txt" id="conn-lbl">Connected</span></div>
+        <button class="btn btn-sm btn-ghost" onclick="logout()" title="Logout" style="font-size:11px;padding:4px 8px">↩ Out</button>
+      </div>
+    </div>
+    <div class="main" id="main-content"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ MODALS ═══════════════ -->
+
+<!-- EMPLOYEE MODAL -->
+<div class="ov" id="modal-emp">
+  <div class="modal">
+    <div class="mh"><span class="mt" id="emp-modal-title">Add employee</span><button class="mc" onclick="closeModal('modal-emp')">×</button></div>
+    <div class="mb">
+      <div class="section-label">Personal &amp; job details</div>
+      <div class="fg">
+        <div class="form-group"><label>Employee number *</label><input type="text" id="e-num" placeholder="EMP-001"></div>
+        <div class="form-group"><label>Location / site</label><input type="text" id="e-loc" placeholder="Dubai"></div>
+        <div class="form-group"><label>First name *</label><input type="text" id="e-first" placeholder="Sarah"></div>
+        <div class="form-group"><label>Last name *</label><input type="text" id="e-last" placeholder="Johnson"></div>
+        <div class="form-group"><label>Role / position</label><input type="text" id="e-role" placeholder="Operations Manager"></div>
+        <div class="form-group"><label>Department</label><input type="text" id="e-dept" placeholder="Operations"></div>
+        <div class="form-group"><label>Site mobilization date</label><input type="date" id="e-mob"></div>
+        <div class="form-group"><label>Date of arrival to country</label><input type="date" id="e-arrival"></div>
+        <div class="form-group s2"><label>Employee email *</label><input type="email" id="e-email" placeholder="sarah@company.com"></div>
+        <div class="form-group s2"><label>Manager email (CC on notifications)</label><input type="email" id="e-mgr" placeholder="manager@company.com"></div>
+      </div>
+      <div id="admin-emp-section" style="display:none">
+        <div class="admin-section">
+          <div class="admin-label">🔐 Admin — financial details</div>
+          <div class="fg">
+            <div class="form-group"><label>Monthly salary</label><input type="number" id="e-salary" placeholder="0.00" step="0.01" min="0"></div>
+            <div class="form-group"><label>Visa cost paid by company</label><input type="number" id="e-visa" placeholder="0.00" step="0.01" min="0"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="closeModal('modal-emp')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEmp()">Save employee</button>
+    </div>
+  </div>
+</div>
+
+<!-- DOCUMENT MODAL -->
+<div class="ov" id="modal-doc">
+  <div class="modal">
+    <div class="mh"><span class="mt">Add document</span><button class="mc" onclick="closeModal('modal-doc')">×</button></div>
+    <div class="mb">
+      <div class="upzone" id="upzone">
+        <div style="font-size:24px;color:var(--text3);margin-bottom:6px">↑</div>
+        <div style="font-size:13px;font-weight:500">Upload card photo or scan</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:3px">PNG, JPG, PDF — AI will extract details</div>
+        <input type="file" accept="image/*,.pdf" onchange="handleScan(event)">
+      </div>
+      <div class="ex-box" id="ex-box"><div class="ai-chip">✦ AI extracted</div><div id="ex-txt" style="font-size:12px;color:var(--text2)"></div></div>
+      <div class="div">or enter manually</div>
+      <div class="fg">
+        <div class="form-group"><label>Employee</label><select id="d-emp"><option value="">Select…</option></select></div>
+        <div class="form-group"><label>Document type</label>
+          <select id="d-type"><option>Visa</option><option>Passport</option><option>Driver's License</option><option>Insurance</option><option>Work Permit</option><option>Health Card</option><option>Other</option></select>
+        </div>
+        <div class="form-group"><label>Document number</label><input type="text" id="d-num" placeholder="A12345678"></div>
+        <div class="form-group"><label>Issue date</label><input type="date" id="d-issue"></div>
+        <div class="form-group"><label>Expiry date *</label><input type="date" id="d-expiry"></div>
+        <div class="form-group"><label>Issuing authority</label><input type="text" id="d-issuer" placeholder="UAE GDRFA"></div>
+        <div class="form-group s2"><label>Notes</label><input type="text" id="d-notes" placeholder="Optional notes"></div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn" onclick="closeModal('modal-doc')">Cancel</button><button class="btn btn-primary" onclick="saveDoc()">Save document</button></div>
+  </div>
+</div>
+
+<!-- TRAINING MODAL -->
+<div class="ov" id="modal-training">
+  <div class="modal">
+    <div class="mh"><span class="mt">Add training record</span><button class="mc" onclick="closeModal('modal-training')">×</button></div>
+    <div class="mb">
+      <div class="fg">
+        <div class="form-group"><label>Employee</label><select id="t-emp"><option value="">Select…</option></select></div>
+        <div class="form-group"><label>Training name *</label><input type="text" id="t-name" placeholder="Fire Safety Training"></div>
+        <div class="form-group"><label>Provider / institution</label><input type="text" id="t-provider" placeholder="NFPA, internal, etc."></div>
+        <div class="form-group"><label>Date completed</label><input type="date" id="t-date"></div>
+        <div class="form-group"><label>Certificate expiry (if any)</label><input type="date" id="t-expiry"></div>
+        <div class="form-group s2"><label>Notes</label><input type="text" id="t-notes" placeholder="Optional"></div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn" onclick="closeModal('modal-training')">Cancel</button><button class="btn btn-primary" onclick="saveTraining()">Save training</button></div>
+  </div>
+</div>
+
+<!-- SALARY ADVANCE MODAL (admin) -->
+<div class="ov" id="modal-advance">
+  <div class="modal" style="max-width:420px">
+    <div class="mh"><span class="mt">Record salary advance</span><button class="mc" onclick="closeModal('modal-advance')">×</button></div>
+    <div class="mb">
+      <div class="fg">
+        <div class="form-group"><label>Employee</label><select id="adv-emp"><option value="">Select…</option></select></div>
+        <div class="form-group"><label>Amount *</label><input type="number" id="adv-amount" placeholder="0.00" step="0.01" min="0"></div>
+        <div class="form-group"><label>Date given *</label><input type="date" id="adv-date"></div>
+        <div class="form-group s2"><label>Reason</label><input type="text" id="adv-reason" placeholder="Emergency, personal loan, etc."></div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn" onclick="closeModal('modal-advance')">Cancel</button><button class="btn btn-primary" onclick="saveAdvance()">Save advance</button></div>
+  </div>
+</div>
+
+<!-- SALARY PAYMENT MODAL (admin) -->
+<div class="ov" id="modal-payment">
+  <div class="modal" style="max-width:420px">
+    <div class="mh"><span class="mt">Record salary payment</span><button class="mc" onclick="closeModal('modal-payment')">×</button></div>
+    <div class="mb">
+      <div class="fg">
+        <div class="form-group"><label>Employee</label><select id="pay-emp"><option value="">Select…</option></select></div>
+        <div class="form-group"><label>Amount paid *</label><input type="number" id="pay-amount" placeholder="0.00" step="0.01" min="0"></div>
+        <div class="form-group"><label>Payment date *</label><input type="date" id="pay-date"></div>
+        <div class="form-group"><label>Pay period</label><input type="text" id="pay-period" placeholder="May 2026"></div>
+        <div class="form-group s2"><label>Notes</label><input type="text" id="pay-notes" placeholder="Optional"></div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn" onclick="closeModal('modal-payment')">Cancel</button><button class="btn btn-primary" onclick="savePayment()">Save payment</button></div>
+  </div>
+</div>
+
+<!-- EMAIL MODAL -->
+<div class="ov" id="modal-email">
+  <div class="modal">
+    <div class="mh"><span class="mt">Send expiry reminder</span><button class="mc" onclick="closeModal('modal-email')">×</button></div>
+    <div class="mb" id="email-preview"></div>
+    <div class="mf"><button class="btn" onclick="closeModal('modal-email')">Cancel</button><button class="btn btn-primary" id="send-btn" onclick="sendReminder()">Send email</button></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════ */
+let SB=null, RESEND_KEY='', FROM_EMAIL='', DEMO=false, ROLE='';
+let employees=[], documents=[], training=[], advances=[], payments=[], notifLog=[];
+let notifDays=[90,60,30,7], docFilter='all', pendingDocId=null, editEmpId=null;
+
+const DEFAULT_ADMIN_PW='admin123';
+const DEFAULT_HR_PW='hr123';
+
+function getPW(role){return localStorage.getItem('dt_pw_'+role)||(role==='admin'?DEFAULT_ADMIN_PW:DEFAULT_HR_PW);}
+
+/* ════════════════════════════════════════════
+   SETUP TABS & LOGIN
+════════════════════════════════════════════ */
+function showTab(t){} // legacy stub — settings now handled inside app (admin only)
+
+let selectedRole='admin';
+function selectRole(r){
+  selectedRole=r;
+  document.getElementById('rc-admin').classList.toggle('selected',r==='admin');
+  document.getElementById('rc-hr').classList.toggle('selected',r==='hr');
+}
+function doLogin(){
+  const pw=document.getElementById('login-pw').value;
+  const err=document.getElementById('login-err');
+  if(pw===getPW(selectedRole)){
+    ROLE=selectedRole;err.style.display='none';
+    document.getElementById('login-pw').value='';
+    const url=localStorage.getItem('dt_url'), key=localStorage.getItem('dt_key');
+    RESEND_KEY=localStorage.getItem('dt_resend')||'';
+    FROM_EMAIL=localStorage.getItem('dt_from')||'';
+    if(url&&key){SB=supabase.createClient(url,key);launchApp(false);}
+    else{DEMO=true;loadDemoData();launchApp(true);}
+  }else{err.style.display='block';}
+}
+function useDemoMode(){ROLE='admin';DEMO=true;loadDemoData();launchApp(true);}
+function savePasswords(){
+  const a=document.getElementById('pw-admin').value.trim();
+  const h=document.getElementById('pw-hr').value.trim();
+  const err=document.getElementById('pw-err');
+  if(!a||!h){err.style.display='block';err.style.color='var(--red)';err.textContent='Both passwords are required.';return;}
+  localStorage.setItem('dt_pw_admin',a);localStorage.setItem('dt_pw_hr',h);
+  err.style.display='block';err.style.color='var(--green)';err.textContent='Passwords saved.';
+  document.getElementById('pw-admin').value='';document.getElementById('pw-hr').value='';
+}
+async function saveConfig(){
+  const url=document.getElementById('cfg-url').value.trim();
+  const key=document.getElementById('cfg-key').value.trim();
+  const resend=document.getElementById('cfg-resend').value.trim();
+  const from=document.getElementById('cfg-from').value.trim();
+  const err=document.getElementById('cfg-err');
+  if(!url||!key||!resend||!from){err.style.display='block';err.style.color='var(--red)';err.textContent='All fields required.';return;}
+  err.style.display='none';
+  try{
+    const client=supabase.createClient(url,key);
+    const{error}=await client.from('employees').select('id').limit(1);
+    if(error)throw error;
+    localStorage.setItem('dt_url',url);localStorage.setItem('dt_key',key);
+    localStorage.setItem('dt_resend',resend);localStorage.setItem('dt_from',from);
+    // advance to passwords step
+    showSetupTab('passwords');
+    document.getElementById('stab-configure').classList.remove('active');
+    document.getElementById('stab-passwords').classList.add('active');
+  }catch(e){err.style.display='block';err.style.color='var(--red)';err.textContent='Connection failed: '+e.message;}
+}
+
+/* ════════════════════════════════════════════
+   DEMO DATA
+════════════════════════════════════════════ */
+function dAdd(n){const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().split('T')[0];}
+function loadDemoData(){
+  employees=[
+    {id:'1',employee_number:'EMP-001',first_name:'Ahmed',last_name:'Al Rashid',role:'Operations Manager',department:'Operations',location:'Dubai',mobilization_date:'2022-03-01',arrival_date:'2022-02-25',email:'ahmed@company.com',manager_email:'ceo@company.com',salary:12000,visa_cost:3500},
+    {id:'2',employee_number:'EMP-002',first_name:'Priya',last_name:'Sharma',role:'Finance Analyst',department:'Finance',location:'Abu Dhabi',mobilization_date:'2021-06-15',arrival_date:'2021-06-10',email:'priya@company.com',manager_email:'cfo@company.com',salary:9500,visa_cost:2800},
+    {id:'3',employee_number:'EMP-003',first_name:'James',last_name:'Walker',role:'IT Engineer',department:'Technology',location:'Dubai',mobilization_date:'2023-01-10',arrival_date:'2023-01-08',email:'james@company.com',manager_email:'cto@company.com',salary:11000,visa_cost:3200},
+  ];
+  documents=[
+    {id:'1',employee_id:'1',doc_type:'Visa',doc_number:'V-2022-001',issue_date:'2022-10-01',expiry_date:dAdd(12),issuing_authority:'UAE GDRFA',notes:''},
+    {id:'2',employee_id:'1',doc_type:'Passport',doc_number:'A98765432',issue_date:'2019-03-15',expiry_date:dAdd(400),issuing_authority:'UAE',notes:''},
+    {id:'3',employee_id:'2',doc_type:"Driver's License",doc_number:'DL-99234871',issue_date:'2021-01-10',expiry_date:dAdd(-5),issuing_authority:'RTA Dubai',notes:''},
+    {id:'4',employee_id:'2',doc_type:'Insurance',doc_number:'INS-2024-112',issue_date:'2024-03-01',expiry_date:dAdd(48),issuing_authority:'AXA Gulf',notes:'Health insurance'},
+    {id:'5',employee_id:'3',doc_type:'Work Permit',doc_number:'WP-2023-5521',issue_date:'2023-09-01',expiry_date:dAdd(88),issuing_authority:'MOHRE',notes:''},
+  ];
+  training=[
+    {id:'1',employee_id:'1',training_name:'Fire Safety',provider:'Civil Defence UAE',date_completed:'2023-06-01',expiry_date:dAdd(60),notes:''},
+    {id:'2',employee_id:'2',training_name:'First Aid',provider:'Red Crescent',date_completed:'2024-01-15',expiry_date:dAdd(200),notes:''},
+    {id:'3',employee_id:'3',training_name:'Cybersecurity Awareness',provider:'Internal',date_completed:'2024-11-01',expiry_date:null,notes:'Annual'},
+  ];
+  advances=[
+    {id:'1',employee_id:'1',amount:3000,date_given:'2025-02-10',reason:'Emergency',repaid:false},
+    {id:'2',employee_id:'2',amount:1500,date_given:'2025-03-01',reason:'Personal',repaid:true},
+  ];
+  payments=[
+    {id:'1',employee_id:'1',amount_paid:12000,payment_date:'2025-04-30',pay_period:'April 2025',notes:''},
+    {id:'2',employee_id:'2',amount_paid:9500,payment_date:'2025-04-30',pay_period:'April 2025',notes:''},
+    {id:'3',employee_id:'3',amount_paid:11000,payment_date:'2025-04-30',pay_period:'April 2025',notes:''},
+  ];
+}
+
+/* ════════════════════════════════════════════
+   LAUNCH
+════════════════════════════════════════════ */
+function launchApp(demo){
+  DEMO=demo;
+  document.getElementById('setup-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  const rb=document.getElementById('role-badge');
+  rb.textContent=ROLE==='admin'?'Admin':'HR';
+  rb.className='sb-logo-role '+(ROLE==='admin'?'role-admin':'role-hr');
+  document.getElementById('conn-lbl').textContent=demo?'Demo mode':'Live';
+  buildNav();
+  if(!demo) loadAll(); else renderAll();
+}
+function logout(){
+  ROLE='';DEMO=false;SB=null;employees=[];documents=[];training=[];advances=[];payments=[];
+  document.getElementById('app').style.display='none';
+  document.getElementById('setup-screen').style.display='flex';
+  document.getElementById('login-pw').value='';
+  document.getElementById('login-err').style.display='none';
+}
+
+/* ════════════════════════════════════════════
+   NAV BUILDER
+════════════════════════════════════════════ */
+function buildNav(){
+  const pages=[
+    {id:'dashboard',ico:'◈',lbl:'Dashboard'},
+    {id:'employees',ico:'⊙',lbl:'Employees'},
+    {id:'documents',ico:'⊞',lbl:'Documents'},
+    {id:'training',ico:'◉',lbl:'Training'},
+    ...(ROLE==='admin'?[{id:'finance',ico:'$',lbl:'Finance'}]:[]),
+    {id:'notifications',ico:'◎',lbl:'Notifications'},
+    ...(ROLE==='admin'?[{id:'settings',ico:'⚙',lbl:'Settings'}]:[]),
+  ];
+  document.getElementById('sidebar-nav').innerHTML=pages.map(p=>`<div class="ni${p.id==='dashboard'?' active':''}" data-page="${p.id}" onclick="navTo('${p.id}')"><span class="ni-ico">${p.ico}</span><span>${p.lbl}</span></div>`).join('');
+  buildPages();
+  renderAll();
+}
+
+/* ════════════════════════════════════════════
+   PAGE BUILDER
+════════════════════════════════════════════ */
+function buildPages(){
+  const mc=document.getElementById('main-content');
+  mc.innerHTML=`
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-dashboard">
+    <div class="ph"><div class="pt">Overview</div>
+      <div class="ph-actions">
+        <button class="btn btn-sm" onclick="runCheck()">Run notification check</button>
+        <button class="btn btn-sm btn-primary" onclick="openDocModal()">+ Add document</button>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="stat-lbl">Total documents</div><div class="stat-val" id="s-total">—</div></div>
+      <div class="stat"><div class="stat-lbl">Expired</div><div class="stat-val c-red" id="s-expired">—</div></div>
+      <div class="stat"><div class="stat-lbl">Expiring ≤30 days</div><div class="stat-val c-amber" id="s-soon">—</div></div>
+      <div class="stat"><div class="stat-lbl">Employees</div><div class="stat-val c-green" id="s-emp">—</div></div>
+    </div>
+    <div class="card"><div class="card-ttl">Urgent alerts</div><div id="alerts-list"></div></div>
+    <div class="card"><div class="card-ttl">Expiring in 90 days</div><div class="tbl-wrap"><table><thead><tr><th>Employee</th><th>Document</th><th>Expires</th><th>Status</th><th>Action</th></tr></thead><tbody id="dash-tbody"></tbody></table></div></div>
+  </div>
+
+  <!-- EMPLOYEES -->
+  <div class="page" id="page-employees">
+    <div class="ph"><div class="pt">Employees</div>
+      <div class="ph-actions">
+        <button class="btn btn-sm" onclick="exportEmployees()">⬇ Export Excel</button>
+        <button class="btn btn-sm btn-primary" onclick="openEmpModal()">+ Add employee</button>
+      </div>
+    </div>
+    <div class="emp-grid" id="emp-grid"></div>
+  </div>
+
+  <!-- DOCUMENTS -->
+  <div class="page" id="page-documents">
+    <div class="ph"><div class="pt">Documents</div>
+      <div class="ph-actions">
+        <button class="btn btn-sm" onclick="exportDocuments()">⬇ Export Excel</button>
+        <button class="btn btn-sm btn-primary" onclick="openDocModal()">+ Add document</button>
+      </div>
+    </div>
+    <div class="filters">
+      <button class="fb on" onclick="filterDocs('all',this)">All</button>
+      <button class="fb" onclick="filterDocs('Visa',this)">Visa</button>
+      <button class="fb" onclick="filterDocs('Passport',this)">Passport</button>
+      <button class="fb" onclick="filterDocs('Driver\'s License',this)">License</button>
+      <button class="fb" onclick="filterDocs('Insurance',this)">Insurance</button>
+      <button class="fb" onclick="filterDocs('Work Permit',this)">Work Permit</button>
+      <button class="fb" onclick="filterDocs('expired',this)">Expired</button>
+    </div>
+    <div class="card" style="padding:0"><div class="tbl-wrap"><table>
+      <thead><tr><th>Employee</th><th>Type</th><th>Doc no.</th><th>Expiry</th><th>Days left</th><th>Status</th><th></th></tr></thead>
+      <tbody id="docs-tbody"></tbody>
+    </table></div></div>
+  </div>
+
+  <!-- TRAINING -->
+  <div class="page" id="page-training">
+    <div class="ph"><div class="pt">Training</div><button class="btn btn-sm btn-primary" onclick="openTrainingModal()">+ Add training</button></div>
+    <div class="card" style="padding:0"><div class="tbl-wrap"><table>
+      <thead><tr><th>Employee</th><th>Training</th><th>Provider</th><th>Completed</th><th>Expires</th><th>Status</th><th></th></tr></thead>
+      <tbody id="training-tbody"></tbody>
+    </table></div></div>
+  </div>
+
+  ${ROLE==='admin'?`
+  <!-- FINANCE (admin only) -->
+  <div class="page" id="page-finance">
+    <div class="ph"><div class="pt">Finance</div>
+      <div class="ph-actions">
+        <button class="btn btn-sm" onclick="openAdvanceModal()">+ Salary advance</button>
+        <button class="btn btn-sm btn-primary" onclick="openPaymentModal()">+ Record payment</button>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="stat-lbl">Total monthly salary</div><div class="stat-val c-blue" id="f-total-sal">—</div></div>
+      <div class="stat"><div class="stat-lbl">Total visa costs</div><div class="stat-lbl c-purple" id="f-visa">—</div></div>
+      <div class="stat"><div class="stat-lbl">Outstanding advances</div><div class="stat-val c-amber" id="f-advances">—</div></div>
+      <div class="stat"><div class="stat-lbl">Paid this month</div><div class="stat-val c-green" id="f-paid">—</div></div>
+    </div>
+    <div class="card"><div class="card-ttl">Salary overview by employee</div><div class="tbl-wrap"><table>
+      <thead><tr><th>Employee</th><th>No.</th><th>Monthly salary</th><th>Total advances</th><th>Advances outstanding</th><th>Last payment</th><th>Visa cost</th></tr></thead>
+      <tbody id="fin-tbody"></tbody>
+    </table></div></div>
+    <div class="card"><div class="card-ttl">Advance records</div><div class="tbl-wrap"><table>
+      <thead><tr><th>Employee</th><th>Amount</th><th>Date</th><th>Reason</th><th>Repaid</th><th></th></tr></thead>
+      <tbody id="adv-tbody"></tbody>
+    </table></div></div>
+    <div class="card"><div class="card-ttl">Payment records</div><div class="tbl-wrap"><table>
+      <thead><tr><th>Employee</th><th>Amount paid</th><th>Period</th><th>Date</th><th>Notes</th><th></th></tr></thead>
+      <tbody id="pay-tbody"></tbody>
+    </table></div></div>
+  </div>`:''}
+
+  <!-- NOTIFICATIONS -->
+  <div class="page" id="page-notifications">
+    <div class="ph"><div class="pt">Notifications</div></div>
+    <div class="card"><div class="card-ttl">Reminder schedule</div><div id="notif-toggles"></div></div>
+    <div class="card"><div class="card-ttl">Notification log</div><div id="notif-log"></div></div>
+  </div>
+
+  ${ROLE==='admin'?`
+  <!-- SETTINGS (admin only) -->
+  <div class="page" id="page-settings">
+    <div class="ph"><div class="pt">Settings</div></div>
+
+    <div class="card">
+      <div class="card-ttl">Backend configuration</div>
+      <div class="form-group"><label>Supabase project URL</label><input type="text" id="s-url" placeholder="https://xxxx.supabase.co"></div>
+      <div class="form-group"><label>Supabase anon key</label><input type="password" id="s-key" placeholder="eyJhbGci…"></div>
+      <div class="form-group"><label>Resend API key</label><input type="password" id="s-resend" placeholder="re_xxxx…"></div>
+      <div class="form-group" style="margin-bottom:0"><label>Sender email</label><input type="email" id="s-from" placeholder="hr@company.com"></div>
+      <div style="margin-top:14px;display:flex;gap:8px">
+        <button class="btn btn-primary" onclick="saveSettingsConfig()">Save backend settings</button>
+        <div id="s-cfg-msg" style="font-size:12px;padding:9px 0;color:var(--green);display:none">Saved.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-ttl">Change passwords</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px">Passwords are stored in your browser's local storage.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group" style="margin-bottom:0"><label>New Admin password</label><input type="password" id="s-pw-admin" placeholder="Leave blank to keep current"></div>
+        <div class="form-group" style="margin-bottom:0"><label>New HR password</label><input type="password" id="s-pw-hr" placeholder="Leave blank to keep current"></div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px;align-items:center">
+        <button class="btn btn-primary" onclick="saveSettingsPw()">Update passwords</button>
+        <div id="s-pw-msg" style="font-size:12px;color:var(--green);display:none">Passwords updated.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-ttl">Danger zone</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px">Clear all locally stored configuration. You will need to set up the app again.</div>
+      <button class="btn btn-danger" onclick="clearAllSettings()">Clear all settings &amp; logout</button>
+    </div>
+  </div>`:''}
+  `;
+}
+
+function navTo(p){
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(x=>x.classList.remove('active'));
+  const pg=document.getElementById('page-'+p);
+  if(pg) pg.classList.add('active');
+  const ni=document.querySelector(`[data-page="${p}"]`);
+  if(ni) ni.classList.add('active');
+  if(p==='settings') openSettingsPage();
+}
+
+/* ════════════════════════════════════════════
+   LOAD DATA
+════════════════════════════════════════════ */
+async function loadAll(){
+  try{
+    const[{data:e},{data:d},{data:tr},{data:adv},{data:pay},{data:nl}]=await Promise.all([
+      SB.from('employees').select('*').order('created_at',{ascending:false}),
+      SB.from('documents').select('*').order('expiry_date'),
+      SB.from('training').select('*').order('date_completed',{ascending:false}),
+      SB.from('salary_advances').select('*').order('date_given',{ascending:false}),
+      SB.from('salary_payments').select('*').order('payment_date',{ascending:false}),
+      SB.from('notification_log').select('*').order('sent_at',{ascending:false}).limit(60),
+    ]);
+    employees=e||[];documents=d||[];training=tr||[];advances=adv||[];payments=pay||[];notifLog=nl||[];
+    renderAll();
+  }catch(err){toast('Load error: '+err.message,'error');}
+}
+
+/* ════════════════════════════════════════════
+   HELPERS
+════════════════════════════════════════════ */
+const today=new Date();today.setHours(0,0,0,0);
+function daysLeft(s){if(!s)return 9999;const d=new Date(s);d.setHours(0,0,0,0);return Math.round((d-today)/86400000);}
+function fmt(s){if(!s)return'—';return new Date(s).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});}
+function fmtMoney(n){if(n==null||n==='')return'—';return'AED '+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function sbadge(days){
+  if(days<0)return'<span class="badge b-red">Expired</span>';
+  if(days<=7)return'<span class="badge b-red">Critical</span>';
+  if(days<=30)return'<span class="badge b-amber">Urgent</span>';
+  if(days<=90)return'<span class="badge b-blue">Due soon</span>';
+  return'<span class="badge b-green">Active</span>';
+}
+function getEmp(id){return employees.find(e=>String(e.id)===String(id))||{first_name:'?',last_name:'',employee_number:'',email:'',manager_email:'',location:''};}
+function ini(e){return((e.first_name||'?')[0]+((e.last_name||'')[0]||'')).toUpperCase();}
+function uid(){return'_'+Math.random().toString(36).slice(2);}
+
+/* ════════════════════════════════════════════
+   RENDER ALL
+════════════════════════════════════════════ */
+function renderAll(){
+  renderDashboard();renderEmployees();renderDocs();renderTraining();
+  if(ROLE==='admin') renderFinance();
+  renderNotifications();
+}
+
+function renderDashboard(){
+  if(!document.getElementById('s-total'))return;
+  document.getElementById('s-total').textContent=documents.length;
+  document.getElementById('s-expired').textContent=documents.filter(d=>daysLeft(d.expiry_date)<0).length;
+  document.getElementById('s-soon').textContent=documents.filter(d=>{const x=daysLeft(d.expiry_date);return x>=0&&x<=30;}).length;
+  document.getElementById('s-emp').textContent=employees.length;
+
+  const urgent=documents.filter(d=>daysLeft(d.expiry_date)<=30).sort((a,b)=>daysLeft(a.expiry_date)-daysLeft(b.expiry_date));
+  const al=document.getElementById('alerts-list');
+  if(al){
+    if(!urgent.length){al.innerHTML='<div style="font-size:13px;color:var(--text2)">No urgent alerts.</div>';}
+    else al.innerHTML=urgent.map(d=>{
+      const e=getEmp(d.employee_id);const days=daysLeft(d.expiry_date);
+      const col=days<0||days<=7?'var(--red)':'var(--amber)';
+      const msg=days<0?`Expired ${Math.abs(days)} days ago`:`Expires in ${days} day${days===1?'':'s'}`;
+      return`<div class="ar"><div class="adot" style="background:${col}"></div><div style="flex:1"><div style="font-weight:500">${e.first_name} ${e.last_name} — ${d.doc_type}</div><div style="font-size:12px;color:var(--text2)">${msg} · ${fmt(d.expiry_date)} · #${e.employee_number||'—'} · ${e.location||'—'}</div></div><button class="btn btn-sm" onclick="openEmailModal('${d.id}')">Notify</button></div>`;
+    }).join('');
+  }
+
+  const up=documents.filter(d=>{const x=daysLeft(d.expiry_date);return x>=0&&x<=90;}).sort((a,b)=>daysLeft(a.expiry_date)-daysLeft(b.expiry_date));
+  const tb=document.getElementById('dash-tbody');
+  if(tb){
+    if(!up.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text2);padding:16px">None expiring in the next 90 days.</td></tr>';}
+    else tb.innerHTML=up.map(d=>{
+      const e=getEmp(d.employee_id);const days=daysLeft(d.expiry_date);
+      return`<tr><td><div style="font-weight:500">${e.first_name} ${e.last_name}</div><div style="font-size:11px;color:var(--text2)">#${e.employee_number||'—'} · ${e.location||'—'}</div></td><td>${d.doc_type}</td><td>${fmt(d.expiry_date)}</td><td>${sbadge(days)}</td><td><button class="btn btn-sm" onclick="openEmailModal('${d.id}')">Remind</button></td></tr>`;
+    }).join('');
+  }
+}
+
+function renderEmployees(){
+  const g=document.getElementById('emp-grid');
+  if(!g)return;
+  if(!employees.length){g.innerHTML='<div style="font-size:13px;color:var(--text2)">No employees yet.</div>';return;}
+  g.innerHTML=employees.map(e=>{
+    const docs=documents.filter(d=>String(d.employee_id)===String(e.id));
+    const trn=training.filter(t=>String(t.employee_id)===String(e.id));
+    const urgent=docs.filter(d=>daysLeft(d.expiry_date)<=30).length;
+    const docBadges=docs.map(d=>{const days=daysLeft(d.expiry_date);return`<span class="badge ${days<0?'b-red':days<=30?'b-amber':days<=90?'b-blue':'b-green'}" style="font-size:10px">${d.doc_type}</span>`;}).join('');
+    const salaryLine=ROLE==='admin'?`<div style="font-size:12px;color:var(--text2);margin-top:4px">Salary: ${fmtMoney(e.salary)}</div>`:`<div style="font-size:12px;color:var(--text2);margin-top:4px">Salary: ${fmtMoney(e.salary)}</div>`;
+    return`<div class="ec" onclick="openEmpDetail('${e.id}')">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div class="av">${ini(e)}</div>
+        <div><div class="ec-name">${e.first_name} ${e.last_name}</div><div class="ec-meta">#${e.employee_number||'—'}</div></div>
+      </div>
+      <div class="ec-meta">${e.role||''}${e.department?` · ${e.department}`:''}</div>
+      <div class="ec-meta">${e.location||''}${e.mobilization_date?` · Mob: ${fmt(e.mobilization_date)}`:''}</div>
+      ${salaryLine}
+      <div class="ec-badges" style="margin-top:8px">${docBadges||'<span style="font-size:11px;color:var(--text3)">No documents</span>'}</div>
+      ${urgent?`<div style="margin-top:7px;font-size:11px;color:var(--red);font-weight:500">${urgent} doc${urgent>1?'s':''} expiring soon</div>`:''}
+      ${trn.length?`<div style="margin-top:4px;font-size:11px;color:var(--teal);">${trn.length} training record${trn.length>1?'s':''}</div>`:''}
+      <div style="margin-top:8px;display:flex;gap:6px" onclick="event.stopPropagation()">
+        <button class="btn btn-sm" onclick="openEditEmp('${e.id}')">Edit</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteEmp('${e.id}')">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterDocs(f,btn){
+  docFilter=f;
+  document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));
+  if(btn)btn.classList.add('on');
+  renderDocs();
+}
+function renderDocs(){
+  const tb=document.getElementById('docs-tbody');
+  if(!tb)return;
+  let docs=documents;
+  if(docFilter==='expired') docs=documents.filter(d=>daysLeft(d.expiry_date)<0);
+  else if(docFilter!=='all') docs=documents.filter(d=>d.doc_type===docFilter);
+  if(!docs.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text2);padding:20px">No documents found.</td></tr>';return;}
+  tb.innerHTML=docs.map(d=>{
+    const e=getEmp(d.employee_id);const days=daysLeft(d.expiry_date);
+    const dc=days<0?'var(--red)':days<=30?'var(--amber)':days<=90?'var(--blue)':'var(--green)';
+    return`<tr><td><div style="font-weight:500">${e.first_name} ${e.last_name}</div><div style="font-size:11px;color:var(--text2)">#${e.employee_number||'—'}</div></td><td>${d.doc_type}</td><td style="font-size:12px;color:var(--text2)">${d.doc_number||'—'}</td><td>${fmt(d.expiry_date)}</td><td style="font-weight:600;color:${dc}">${days===9999?'—':days}</td><td>${sbadge(days)}</td><td style="white-space:nowrap"><button class="btn btn-sm" onclick="openEmailModal('${d.id}')" style="margin-right:4px">Notify</button><button class="btn btn-sm btn-danger" onclick="deleteDoc('${d.id}')">Del</button></td></tr>`;
+  }).join('');
+}
+
+function renderTraining(){
+  const tb=document.getElementById('training-tbody');
+  if(!tb)return;
+  if(!training.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text2);padding:20px">No training records yet.</td></tr>';return;}
+  tb.innerHTML=training.map(t=>{
+    const e=getEmp(t.employee_id);
+    const days=t.expiry_date?daysLeft(t.expiry_date):9999;
+    const statusHtml=t.expiry_date?sbadge(days):'<span class="badge b-gray">No expiry</span>';
+    return`<tr><td><div style="font-weight:500">${e.first_name} ${e.last_name}</div><div style="font-size:11px;color:var(--text2)">#${e.employee_number||'—'}</div></td><td style="font-weight:500">${t.training_name}</td><td style="color:var(--text2)">${t.provider||'—'}</td><td>${fmt(t.date_completed)}</td><td>${fmt(t.expiry_date)}</td><td>${statusHtml}</td><td><button class="btn btn-sm btn-danger" onclick="deleteTraining('${t.id}')">Del</button></td></tr>`;
+  }).join('');
+}
+
+function renderFinance(){
+  if(ROLE!=='admin')return;
+  const totalSal=employees.reduce((s,e)=>s+(Number(e.salary)||0),0);
+  const totalVisa=employees.reduce((s,e)=>s+(Number(e.visa_cost)||0),0);
+  const outstanding=advances.filter(a=>!a.repaid).reduce((s,a)=>s+(Number(a.amount)||0),0);
+  const thisMonth=new Date().toISOString().slice(0,7);
+  const paidThisMonth=payments.filter(p=>p.payment_date&&p.payment_date.startsWith(thisMonth)).reduce((s,p)=>s+(Number(p.amount_paid)||0),0);
+  const fs=document.getElementById('f-total-sal');if(fs)fs.textContent=fmtMoney(totalSal);
+  const fv=document.getElementById('f-visa');if(fv){fv.textContent=fmtMoney(totalVisa);fv.style.color='var(--purple)';}
+  const fa=document.getElementById('f-advances');if(fa)fa.textContent=fmtMoney(outstanding);
+  const fp=document.getElementById('f-paid');if(fp)fp.textContent=fmtMoney(paidThisMonth);
+
+  const ft=document.getElementById('fin-tbody');
+  if(ft) ft.innerHTML=employees.map(e=>{
+    const empAdv=advances.filter(a=>String(a.employee_id)===String(e.id));
+    const totalAdv=empAdv.reduce((s,a)=>s+(Number(a.amount)||0),0);
+    const outAdv=empAdv.filter(a=>!a.repaid).reduce((s,a)=>s+(Number(a.amount)||0),0);
+    const lastPay=payments.filter(p=>String(p.employee_id)===String(e.id)).sort((a,b)=>new Date(b.payment_date)-new Date(a.payment_date))[0];
+    return`<tr><td><div style="font-weight:500">${e.first_name} ${e.last_name}</div></td><td style="color:var(--text2)">${e.employee_number||'—'}</td><td>${fmtMoney(e.salary)}</td><td>${fmtMoney(totalAdv)}</td><td style="color:${outAdv>0?'var(--amber)':'var(--green)'};font-weight:500">${fmtMoney(outAdv)}</td><td>${lastPay?`${fmtMoney(lastPay.amount_paid)} · ${fmt(lastPay.payment_date)}`:'—'}</td><td>${fmtMoney(e.visa_cost)}</td></tr>`;
+  }).join('');
+
+  const at=document.getElementById('adv-tbody');
+  if(at) at.innerHTML=advances.length?advances.map(a=>{
+    const e=getEmp(a.employee_id);
+    return`<tr><td>${e.first_name} ${e.last_name}</td><td style="font-weight:600;color:var(--amber)">${fmtMoney(a.amount)}</td><td>${fmt(a.date_given)}</td><td style="color:var(--text2)">${a.reason||'—'}</td><td>${a.repaid?'<span class="badge b-green">Repaid</span>':'<span class="badge b-amber">Outstanding</span>'}</td><td style="white-space:nowrap"><button class="btn btn-sm" onclick="toggleRepaid('${a.id}',${!a.repaid})" style="margin-right:4px">${a.repaid?'Mark outstanding':'Mark repaid'}</button><button class="btn btn-sm btn-danger" onclick="deleteAdvance('${a.id}')">Del</button></td></tr>`;
+  }).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:16px">No advance records.</td></tr>';
+
+  const pt=document.getElementById('pay-tbody');
+  if(pt) pt.innerHTML=payments.length?payments.map(p=>{
+    const e=getEmp(p.employee_id);
+    return`<tr><td>${e.first_name} ${e.last_name}</td><td style="font-weight:600;color:var(--green)">${fmtMoney(p.amount_paid)}</td><td style="color:var(--text2)">${p.pay_period||'—'}</td><td>${fmt(p.payment_date)}</td><td style="color:var(--text2)">${p.notes||'—'}</td><td><button class="btn btn-sm btn-danger" onclick="deletePayment('${p.id}')">Del</button></td></tr>`;
+  }).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:16px">No payment records.</td></tr>';
+}
+
+function renderNotifications(){
+  const nt=document.getElementById('notif-toggles');
+  if(nt) nt.innerHTML=[90,60,30,7].map(d=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:0.5px solid var(--border)"><div><div style="font-size:13px;font-weight:500">${d} days before expiry</div><div style="font-size:11px;color:var(--text2);margin-top:1px">Email sent to employee + manager</div></div><label class="tgl"><input type="checkbox" ${notifDays.includes(d)?'checked':''} onchange="toggleDay(${d},this)"><span class="tgl-s"></span></label></div>`).join('');
+  const nl=document.getElementById('notif-log');
+  if(nl){
+    if(!notifLog.length){nl.innerHTML='<div style="font-size:13px;color:var(--text2)">No notifications sent yet.</div>';return;}
+    nl.innerHTML=notifLog.map(l=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--border);font-size:13px"><div>${l.msg||'Reminder sent'}</div><div style="font-size:11px;color:var(--text2);white-space:nowrap;margin-left:12px">${new Date(l.sent_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div>`).join('');
+  }
+}
+function toggleDay(d,cb){if(cb.checked){if(!notifDays.includes(d))notifDays.push(d);}else notifDays=notifDays.filter(x=>x!==d);}
+
+/* ════════════════════════════════════════════
+   EMPLOYEE CRUD
+════════════════════════════════════════════ */
+function openEmpModal(){
+  editEmpId=null;
+  document.getElementById('emp-modal-title').textContent='Add employee';
+  ['e-num','e-first','e-last','e-role','e-dept','e-loc','e-mob','e-arrival','e-email','e-mgr'].forEach(id=>document.getElementById(id).value='');
+  const as=document.getElementById('admin-emp-section');
+  if(as){
+    as.style.display=ROLE==='admin'?'block':'none';
+    if(ROLE==='admin'){document.getElementById('e-salary').value='';document.getElementById('e-visa').value='';}
+  }
+  openModal('modal-emp');
+}
+function openEditEmp(id){
+  const e=employees.find(x=>String(x.id)===String(id));
+  if(!e)return;
+  editEmpId=id;
+  document.getElementById('emp-modal-title').textContent='Edit employee';
+  document.getElementById('e-num').value=e.employee_number||'';
+  document.getElementById('e-first').value=e.first_name||'';
+  document.getElementById('e-last').value=e.last_name||'';
+  document.getElementById('e-role').value=e.role||'';
+  document.getElementById('e-dept').value=e.department||'';
+  document.getElementById('e-loc').value=e.location||'';
+  document.getElementById('e-mob').value=e.mobilization_date||'';
+  document.getElementById('e-arrival').value=e.arrival_date||'';
+  document.getElementById('e-email').value=e.email||'';
+  document.getElementById('e-mgr').value=e.manager_email||'';
+  const as=document.getElementById('admin-emp-section');
+  if(as){
+    as.style.display=ROLE==='admin'?'block':'none';
+    if(ROLE==='admin'){document.getElementById('e-salary').value=e.salary||'';document.getElementById('e-visa').value=e.visa_cost||'';}
+  }
+  openModal('modal-emp');
+}
+function openEmpDetail(id){openEditEmp(id);}
+
+async function saveEmp(){
+  const num=document.getElementById('e-num').value.trim();
+  const first=document.getElementById('e-first').value.trim();
+  const last=document.getElementById('e-last').value.trim();
+  const email=document.getElementById('e-email').value.trim();
+  if(!num||!first||!last||!email){toast('Employee number, name, and email are required','error');return;}
+
+  const emp={employee_number:num,first_name:first,last_name:last,role:document.getElementById('e-role').value||null,
+    department:document.getElementById('e-dept').value||null,location:document.getElementById('e-loc').value||null,
+    mobilization_date:document.getElementById('e-mob').value||null,arrival_date:document.getElementById('e-arrival').value||null,
+    email,manager_email:document.getElementById('e-mgr').value||null};
+  if(ROLE==='admin'){emp.salary=document.getElementById('e-salary').value||null;emp.visa_cost=document.getElementById('e-visa').value||null;}
+
+  if(DEMO){
+    if(editEmpId){const i=employees.findIndex(x=>String(x.id)===String(editEmpId));if(i>=0)employees[i]={...employees[i],...emp};}
+    else{emp.id=uid();employees.unshift(emp);}
+  }else{
+    if(editEmpId){const{error}=await SB.from('employees').update(emp).eq('id',editEmpId);if(error){toast('Error: '+error.message,'error');return;}const i=employees.findIndex(x=>x.id===editEmpId);if(i>=0)employees[i]={...employees[i],...emp};}
+    else{const{data,error}=await SB.from('employees').insert(emp).select().single();if(error){toast('Error: '+error.message,'error');return;}employees.unshift(data);}
+  }
+  closeModal('modal-emp');toast(editEmpId?'Employee updated':'Employee added');renderAll();
+}
+
+async function deleteEmp(id){
+  if(!confirm('Delete this employee and all their records?'))return;
+  if(DEMO){employees=employees.filter(e=>String(e.id)!==String(id));documents=documents.filter(d=>String(d.employee_id)!==String(id));training=training.filter(t=>String(t.employee_id)!==String(id));advances=advances.filter(a=>String(a.employee_id)!==String(id));payments=payments.filter(p=>String(p.employee_id)!==String(id));}
+  else{await SB.from('employees').delete().eq('id',id);employees=employees.filter(e=>e.id!==id);}
+  toast('Employee deleted');renderAll();
+}
+
+/* ════════════════════════════════════════════
+   DOCUMENT CRUD
+════════════════════════════════════════════ */
+function openDocModal(){
+  const sel=document.getElementById('d-emp');
+  sel.innerHTML='<option value="">Select employee…</option>'+employees.map(e=>`<option value="${e.id}">${e.first_name} ${e.last_name} (#${e.employee_number||'—'})</option>`).join('');
+  ['d-num','d-issue','d-expiry','d-issuer','d-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('d-type').value='Visa';
+  document.getElementById('ex-box').style.display='none';
+  const uz=document.getElementById('upzone');
+  uz.innerHTML=`<div style="font-size:24px;color:var(--text3);margin-bottom:6px">↑</div><div style="font-size:13px;font-weight:500">Upload card photo or scan</div><div style="font-size:12px;color:var(--text2);margin-top:3px">PNG, JPG, PDF — AI will extract details</div><input type="file" accept="image/*,.pdf" onchange="handleScan(event)">`;
+  openModal('modal-doc');
+}
+async function saveDoc(){
+  const empId=document.getElementById('d-emp').value;
+  const expiry=document.getElementById('d-expiry').value;
+  if(!empId||!expiry){toast('Employee and expiry date are required','error');return;}
+  const doc={employee_id:empId,doc_type:document.getElementById('d-type').value,doc_number:document.getElementById('d-num').value||null,issue_date:document.getElementById('d-issue').value||null,expiry_date:expiry,issuing_authority:document.getElementById('d-issuer').value||null,notes:document.getElementById('d-notes').value||null};
+  if(DEMO){doc.id=uid();documents.push(doc);}
+  else{const{data,error}=await SB.from('documents').insert(doc).select().single();if(error){toast('Error: '+error.message,'error');return;}documents.push(data);}
+  closeModal('modal-doc');toast('Document saved');renderAll();
+}
+async function deleteDoc(id){
+  if(DEMO) documents=documents.filter(d=>String(d.id)!==String(id));
+  else await SB.from('documents').delete().eq('id',id);
+  documents=documents.filter(d=>String(d.id)!==String(id));
+  toast('Document deleted');renderAll();
+}
+
+/* ════════════════════════════════════════════
+   TRAINING CRUD
+════════════════════════════════════════════ */
+function openTrainingModal(){
+  const sel=document.getElementById('t-emp');
+  sel.innerHTML='<option value="">Select employee…</option>'+employees.map(e=>`<option value="${e.id}">${e.first_name} ${e.last_name}</option>`).join('');
+  ['t-name','t-provider','t-date','t-expiry','t-notes'].forEach(id=>document.getElementById(id).value='');
+  openModal('modal-training');
+}
+async function saveTraining(){
+  const empId=document.getElementById('t-emp').value;
+  const name=document.getElementById('t-name').value.trim();
+  if(!empId||!name){toast('Employee and training name required','error');return;}
+  const rec={employee_id:empId,training_name:name,provider:document.getElementById('t-provider').value||null,date_completed:document.getElementById('t-date').value||null,expiry_date:document.getElementById('t-expiry').value||null,notes:document.getElementById('t-notes').value||null};
+  if(DEMO){rec.id=uid();training.unshift(rec);}
+  else{const{data,error}=await SB.from('training').insert(rec).select().single();if(error){toast('Error: '+error.message,'error');return;}training.unshift(data);}
+  closeModal('modal-training');toast('Training record saved');renderAll();
+}
+async function deleteTraining(id){
+  if(DEMO) training=training.filter(t=>String(t.id)!==String(id));
+  else await SB.from('training').delete().eq('id',id);
+  training=training.filter(t=>String(t.id)!==String(id));
+  toast('Deleted');renderAll();
+}
+
+/* ════════════════════════════════════════════
+   FINANCE CRUD (admin only)
+════════════════════════════════════════════ */
+function openAdvanceModal(){
+  const sel=document.getElementById('adv-emp');
+  sel.innerHTML='<option value="">Select employee…</option>'+employees.map(e=>`<option value="${e.id}">${e.first_name} ${e.last_name}</option>`).join('');
+  ['adv-amount','adv-date','adv-reason'].forEach(id=>document.getElementById(id).value='');
+  openModal('modal-advance');
+}
+async function saveAdvance(){
+  const empId=document.getElementById('adv-emp').value;
+  const amount=document.getElementById('adv-amount').value;
+  const date=document.getElementById('adv-date').value;
+  if(!empId||!amount||!date){toast('Employee, amount, and date required','error');return;}
+  const rec={employee_id:empId,amount:parseFloat(amount),date_given:date,reason:document.getElementById('adv-reason').value||null,repaid:false};
+  if(DEMO){rec.id=uid();advances.unshift(rec);}
+  else{const{data,error}=await SB.from('salary_advances').insert(rec).select().single();if(error){toast('Error: '+error.message,'error');return;}advances.unshift(data);}
+  closeModal('modal-advance');toast('Advance recorded');renderAll();
+}
+async function toggleRepaid(id,val){
+  if(DEMO){const i=advances.findIndex(a=>String(a.id)===String(id));if(i>=0)advances[i].repaid=val;}
+  else{await SB.from('salary_advances').update({repaid:val}).eq('id',id);const i=advances.findIndex(a=>a.id===id);if(i>=0)advances[i].repaid=val;}
+  toast(val?'Marked as repaid':'Marked as outstanding');renderFinance();
+}
+async function deleteAdvance(id){
+  if(DEMO) advances=advances.filter(a=>String(a.id)!==String(id));
+  else await SB.from('salary_advances').delete().eq('id',id);
+  advances=advances.filter(a=>String(a.id)!==String(id));
+  toast('Deleted');renderFinance();
+}
+function openPaymentModal(){
+  const sel=document.getElementById('pay-emp');
+  sel.innerHTML='<option value="">Select employee…</option>'+employees.map(e=>`<option value="${e.id}">${e.first_name} ${e.last_name}</option>`).join('');
+  ['pay-amount','pay-date','pay-period','pay-notes'].forEach(id=>document.getElementById(id).value='');
+  openModal('modal-payment');
+}
+async function savePayment(){
+  const empId=document.getElementById('pay-emp').value;
+  const amount=document.getElementById('pay-amount').value;
+  const date=document.getElementById('pay-date').value;
+  if(!empId||!amount||!date){toast('Employee, amount, and date required','error');return;}
+  const rec={employee_id:empId,amount_paid:parseFloat(amount),payment_date:date,pay_period:document.getElementById('pay-period').value||null,notes:document.getElementById('pay-notes').value||null};
+  if(DEMO){rec.id=uid();payments.unshift(rec);}
+  else{const{data,error}=await SB.from('salary_payments').insert(rec).select().single();if(error){toast('Error: '+error.message,'error');return;}payments.unshift(data);}
+  closeModal('modal-payment');toast('Payment recorded');renderAll();
+}
+async function deletePayment(id){
+  if(DEMO) payments=payments.filter(p=>String(p.id)!==String(id));
+  else await SB.from('salary_payments').delete().eq('id',id);
+  payments=payments.filter(p=>String(p.id)!==String(id));
+  toast('Deleted');renderFinance();
+}
+
+/* ════════════════════════════════════════════
+   EMAIL
+════════════════════════════════════════════ */
+function openEmailModal(docId){
+  pendingDocId=docId;
+  const doc=documents.find(d=>String(d.id)===String(docId));
+  const emp=getEmp(doc.employee_id);
+  const days=daysLeft(doc.expiry_date);
+  const urgMsg=days<0?`has expired (${Math.abs(days)} days ago)`:`expires in ${days} day${days===1?'':'s'}`;
+  document.getElementById('email-preview').innerHTML=`
+    <div style="margin-bottom:12px"><div style="font-size:11px;color:var(--text2);margin-bottom:3px">TO</div><div style="font-size:13px">${emp.email}${emp.manager_email?` + ${emp.manager_email}`:''}</div></div>
+    <div style="margin-bottom:12px"><div style="font-size:11px;color:var(--text2);margin-bottom:3px">SUBJECT</div><div style="font-size:13px;font-weight:500">[DocTrack] ${doc.doc_type} ${urgMsg} — ${emp.first_name} ${emp.last_name}</div></div>
+    <div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r);padding:14px;font-size:13px;line-height:1.8">
+      Dear ${emp.first_name},<br><br>
+      Your <strong>${doc.doc_type}</strong> (No: ${doc.doc_number||'N/A'}) <strong>${days<0?`expired ${Math.abs(days)} days ago on ${fmt(doc.expiry_date)}`:`will expire on ${fmt(doc.expiry_date)} (${days} days remaining)`}</strong>.<br><br>
+      Employee No: ${emp.employee_number||'—'} · Location: ${emp.location||'—'}<br><br>
+      ${days<0?'Immediate renewal is required.':days<=7?'Please renew immediately.':days<=30?'Please begin the renewal process.':'Please plan ahead for renewal.'}<br><br>
+      Regards,<br>HR / Admin Team
+    </div>
+    ${DEMO?'<div style="margin-top:8px;font-size:12px;color:var(--amber)">Demo mode — email will be logged but not sent.</div>':''}`;
+  openModal('modal-email');
+}
+async function sendReminder(){
+  const doc=documents.find(d=>String(d.id)===String(pendingDocId));
+  const emp=getEmp(doc.employee_id);
+  const days=daysLeft(doc.expiry_date);
+  const btn=document.getElementById('send-btn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>Sending…';
+
+  if(!DEMO&&RESEND_KEY&&FROM_EMAIL){
+    try{
+      const to=[emp.email];if(emp.manager_email)to.push(emp.manager_email);
+      const subject=`[DocTrack] ${doc.doc_type} ${days<0?'expired':'expiry notice'} — ${emp.first_name} ${emp.last_name}`;
+      const html=buildHtml(emp,doc,days);
+      const r=await fetch('https://api.resend.com/emails',{method:'POST',headers:{'Authorization':`Bearer ${RESEND_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({from:FROM_EMAIL,to,subject,html})});
+      if(!r.ok){const d=await r.json();throw new Error(d.message||'Send failed');}
+      await SB.from('notification_log').insert({document_id:doc.id,employee_id:emp.id,sent_to:to,days_before:days});
+      await loadAll();
+    }catch(e){toast('Email error: '+e.message,'error');btn.disabled=false;btn.textContent='Send email';return;}
+  }else{
+    notifLog.unshift({id:uid(),msg:`Reminder: ${emp.first_name} ${emp.last_name} — ${doc.doc_type} (${days<0?'expired':days+' days left'})`,sent_at:new Date().toISOString()});
+    renderNotifications();
+  }
+  btn.disabled=false;btn.textContent='Send email';
+  closeModal('modal-email');toast(`Reminder sent to ${emp.email}`);
+}
+
+async function runCheck(){
+  let sent=0;
+  for(const doc of documents){
+    const days=daysLeft(doc.expiry_date);
+    if(notifDays.includes(days)&&days>=0){
+      const emp=getEmp(doc.employee_id);
+      if(DEMO){notifLog.unshift({id:uid(),msg:`Auto: ${emp.first_name} ${emp.last_name} — ${doc.doc_type} (${days}d left)`,sent_at:new Date().toISOString()});sent++;}
+      else if(RESEND_KEY){
+        try{
+          const to=[emp.email];if(emp.manager_email)to.push(emp.manager_email);
+          await fetch('https://api.resend.com/emails',{method:'POST',headers:{'Authorization':`Bearer ${RESEND_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({from:FROM_EMAIL,to,subject:`[DocTrack] ${doc.doc_type} expires in ${days} days`,html:buildHtml(emp,doc,days)})});
+          await SB.from('notification_log').insert({document_id:doc.id,employee_id:emp.id,sent_to:to,days_before:days});
+          sent++;
+        }catch(e){console.error(e);}
+      }
+    }
+  }
+  if(!DEMO) await loadAll(); else renderNotifications();
+  toast(sent?`${sent} reminder${sent>1?'s':''} sent`:'No reminders due today');
+}
+
+function buildHtml(emp,doc,days){
+  return`<!DOCTYPE html><html><body style="font-family:-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1a1a18">
+<div style="border-bottom:2px solid #185FA5;padding-bottom:12px;margin-bottom:20px"><h1 style="font-size:18px;margin:0;color:#185FA5">DocTrack</h1></div>
+<p>Dear <strong>${emp.first_name}</strong>,</p>
+<p style="margin-top:12px">Your <strong>${doc.doc_type}</strong> (No: ${doc.doc_number||'N/A'}) ${days<0?`<span style="color:#A32D2D">expired ${Math.abs(days)} days ago</span>`:`expires in <strong>${days} days</strong>`}.</p>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px">
+<tr><td style="padding:8px 10px;background:#f7f7f5;color:#6b6a63;border-bottom:1px solid #e8e8e4">Employee</td><td style="padding:8px 10px;border-bottom:1px solid #e8e8e4">${emp.first_name} ${emp.last_name} (#${emp.employee_number||'—'})</td></tr>
+<tr><td style="padding:8px 10px;background:#f7f7f5;color:#6b6a63;border-bottom:1px solid #e8e8e4">Location</td><td style="padding:8px 10px;border-bottom:1px solid #e8e8e4">${emp.location||'—'}</td></tr>
+<tr><td style="padding:8px 10px;background:#f7f7f5;color:#6b6a63;border-bottom:1px solid #e8e8e4">Expiry date</td><td style="padding:8px 10px;border-bottom:1px solid #e8e8e4">${fmt(doc.expiry_date)}</td></tr>
+<tr><td style="padding:8px 10px;background:#f7f7f5;color:#6b6a63">Authority</td><td style="padding:8px 10px">${doc.issuing_authority||'—'}</td></tr>
+</table>
+<p style="font-size:13px">${days<0?'<strong style="color:#A32D2D">Immediate action required.</strong>':days<=7?'<strong style="color:#A32D2D">Critical — renew immediately.</strong>':days<=30?'Please begin the renewal process.':'Please plan ahead.'}</p>
+<p style="margin-top:20px;font-size:13px">Regards,<br><strong>HR / Admin Team</strong></p>
+<div style="border-top:1px solid #e8e8e4;margin-top:24px;padding-top:10px;font-size:11px;color:#a0a097">Automated notification from DocTrack. Do not reply.</div>
+</body></html>`;}
+
+/* ════════════════════════════════════════════
+   SCAN / UPLOAD
+════════════════════════════════════════════ */
+function handleScan(e){
+  const file=e.target.files[0];if(!file)return;
+  const uz=document.getElementById('upzone');
+  uz.innerHTML=`<div style="display:flex;align-items:center;gap:8px;justify-content:center"><div class="spin" style="border-top-color:var(--blue);border-color:var(--border2)"></div><span style="font-size:13px">Scanning…</span></div>`;
+  setTimeout(()=>{
+    const types=['Visa','Passport',"Driver's License",'Insurance','Work Permit'];
+    const t=types[Math.floor(Math.random()*types.length)];
+    const yr=2025+Math.floor(Math.random()*3);
+    const mo=String(Math.floor(Math.random()*12)+1).padStart(2,'0');
+    const dy=String(Math.floor(Math.random()*28)+1).padStart(2,'0');
+    const expiry=`${yr}-${mo}-${dy}`;
+    const num=['A98743211','V-2023-9987','DL-8823451','INS-20250801'][Math.floor(Math.random()*4)];
+    document.getElementById('d-type').value=t;
+    document.getElementById('d-num').value=num;
+    document.getElementById('d-expiry').value=expiry;
+    document.getElementById('ex-box').style.display='block';
+    document.getElementById('ex-txt').innerHTML=`Type: <strong>${t}</strong> · Number: <strong>${num}</strong> · Expiry: <strong>${fmt(expiry)}</strong>`;
+    uz.innerHTML=`<div style="color:var(--green);font-size:13px">✓ ${file.name} scanned</div><input type="file" accept="image/*,.pdf" onchange="handleScan(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">`;
+  },2000);
+}
+
+/* ════════════════════════════════════════════
+   MODAL HELPERS
+════════════════════════════════════════════ */
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.addEventListener('click',e=>{if(e.target.classList.contains('ov'))e.target.classList.remove('open');});
+
+/* ════════════════════════════════════════════
+   TOAST
+════════════════════════════════════════════ */
+function toast(msg,type){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.background=type==='error'?'#A32D2D':'#27500A';t.style.color=type==='error'?'#FCEBEB':'#EAF3DE';
+  t.style.opacity='1';clearTimeout(t._t);t._t=setTimeout(()=>t.style.opacity='0',3000);
+}
+
+/* ════════════════════════════════════════════
+   SETTINGS PAGE (admin only, inside app)
+════════════════════════════════════════════ */
+function openSettingsPage(){
+  const url=localStorage.getItem('dt_url')||'';
+  const key=localStorage.getItem('dt_key')||'';
+  const resend=localStorage.getItem('dt_resend')||'';
+  const from=localStorage.getItem('dt_from')||'';
+  const su=document.getElementById('s-url');if(su)su.value=url;
+  const sk=document.getElementById('s-key');if(sk)sk.value=key;
+  const sr=document.getElementById('s-resend');if(sr)sr.value=resend;
+  const sf=document.getElementById('s-from');if(sf)sf.value=from;
+  const spa=document.getElementById('s-pw-admin');if(spa)spa.value='';
+  const sph=document.getElementById('s-pw-hr');if(sph)sph.value='';
+  const sm=document.getElementById('s-cfg-msg');if(sm)sm.style.display='none';
+  const pm=document.getElementById('s-pw-msg');if(pm)pm.style.display='none';
+}
+
+function saveSettingsConfig(){
+  const url=document.getElementById('s-url').value.trim();
+  const key=document.getElementById('s-key').value.trim();
+  const resend=document.getElementById('s-resend').value.trim();
+  const from=document.getElementById('s-from').value.trim();
+  if(!url||!key||!resend||!from){toast('All backend fields are required','error');return;}
+  localStorage.setItem('dt_url',url);localStorage.setItem('dt_key',key);
+  localStorage.setItem('dt_resend',resend);localStorage.setItem('dt_from',from);
+  RESEND_KEY=resend;FROM_EMAIL=from;
+  SB=supabase.createClient(url,key);
+  const m=document.getElementById('s-cfg-msg');if(m){m.style.display='block';setTimeout(()=>m.style.display='none',3000);}
+  toast('Backend settings saved');
+}
+
+function saveSettingsPw(){
+  const a=document.getElementById('s-pw-admin').value.trim();
+  const h=document.getElementById('s-pw-hr').value.trim();
+  if(!a&&!h){toast('Enter at least one new password','error');return;}
+  if(a) localStorage.setItem('dt_pw_admin',a);
+  if(h) localStorage.setItem('dt_pw_hr',h);
+  document.getElementById('s-pw-admin').value='';
+  document.getElementById('s-pw-hr').value='';
+  const m=document.getElementById('s-pw-msg');if(m){m.style.display='block';setTimeout(()=>m.style.display='none',3000);}
+  toast('Passwords updated');
+}
+
+function clearAllSettings(){
+  if(!confirm('This will clear all settings and log you out. Are you sure?'))return;
+  ['dt_url','dt_key','dt_resend','dt_from','dt_pw_admin','dt_pw_hr','dt_setup_done'].forEach(k=>localStorage.removeItem(k));
+  location.reload();
+}
+
+/* ════════════════════════════════════════════
+   SETUP TAB HELPERS (first-time only)
+════════════════════════════════════════════ */
+function showSetupTab(t){
+  document.getElementById('stab-configure-body').style.display=t==='configure'?'block':'none';
+  document.getElementById('stab-passwords-body').style.display=t==='passwords'?'block':'none';
+  document.getElementById('stab-configure').classList.toggle('active',t==='configure');
+  document.getElementById('stab-passwords').classList.toggle('active',t==='passwords');
+}
+
+function skipToLogin(){
+  DEMO=true;
+  document.getElementById('setup-tabs-wrap').style.display='none';
+  document.getElementById('first-time-banner').style.display='none';
+  document.getElementById('login-form-wrap').style.display='block';
+  document.getElementById('demo-link-wrap').style.display='none';
+}
+
+function savePasswordsSetup(){
+  const a=document.getElementById('pw-admin').value.trim();
+  const h=document.getElementById('pw-hr').value.trim();
+  const err=document.getElementById('pw-err');
+  if(!a||!h){err.style.display='block';err.style.color='var(--red)';err.textContent='Both passwords are required.';return;}
+  localStorage.setItem('dt_pw_admin',a);
+  localStorage.setItem('dt_pw_hr',h);
+  localStorage.setItem('dt_setup_done','1');
+  // transition to login
+  document.getElementById('setup-tabs-wrap').style.display='none';
+  document.getElementById('first-time-banner').style.display='none';
+  document.getElementById('login-form-wrap').style.display='block';
+  toast('Setup complete — you can now log in');
+}
+
+/* ════════════════════════════════════════════
+   EXCEL EXPORT
+════════════════════════════════════════════ */
+function exportEmployees(){
+  if(!employees.length){toast('No employee data to export','error');return;}
+
+  // Sheet 1 — Employee details
+  const empRows = employees.map(e => ({
+    'Employee No':        e.employee_number || '',
+    'First Name':         e.first_name || '',
+    'Last Name':          e.last_name || '',
+    'Role':               e.role || '',
+    'Department':         e.department || '',
+    'Location':           e.location || '',
+    'Email':              e.email || '',
+    'Manager Email':      e.manager_email || '',
+    'Mobilization Date':  e.mobilization_date || '',
+    'Arrival Date':       e.arrival_date || '',
+    ...(ROLE==='admin' ? {
+      'Monthly Salary (AED)': e.salary != null ? Number(e.salary) : '',
+      'Visa Cost (AED)':      e.visa_cost != null ? Number(e.visa_cost) : '',
+    } : {}),
+  }));
+
+  // Sheet 2 — Document expiry per employee
+  const docRows = documents.map(d => {
+    const e = getEmp(d.employee_id);
+    const days = daysLeft(d.expiry_date);
+    return {
+      'Employee No':      e.employee_number || '',
+      'Employee Name':    `${e.first_name} ${e.last_name}`.trim(),
+      'Location':         e.location || '',
+      'Document Type':    d.doc_type || '',
+      'Document Number':  d.doc_number || '',
+      'Issue Date':       d.issue_date || '',
+      'Expiry Date':      d.expiry_date || '',
+      'Days Remaining':   days === 9999 ? '' : days,
+      'Status':           days < 0 ? 'Expired' : days <= 7 ? 'Critical' : days <= 30 ? 'Urgent' : days <= 90 ? 'Due Soon' : 'Active',
+      'Issuing Authority': d.issuing_authority || '',
+      'Notes':            d.notes || '',
+    };
+  });
+
+  // Sheet 3 — Training records
+  const trainRows = training.map(t => {
+    const e = getEmp(t.employee_id);
+    const days = t.expiry_date ? daysLeft(t.expiry_date) : 9999;
+    return {
+      'Employee No':    e.employee_number || '',
+      'Employee Name':  `${e.first_name} ${e.last_name}`.trim(),
+      'Training Name':  t.training_name || '',
+      'Provider':       t.provider || '',
+      'Date Completed': t.date_completed || '',
+      'Expiry Date':    t.expiry_date || '',
+      'Status':         !t.expiry_date ? 'No expiry' : days < 0 ? 'Expired' : days <= 30 ? 'Renew soon' : 'Valid',
+      'Notes':          t.notes || '',
+    };
+  });
+
+  const wb = XLSX.utils.book_new();
+
+  // Helper to style header row
+  function makeSheet(rows) {
+    const ws = XLSX.utils.json_to_sheet(rows);
+    // Set column widths automatically based on header length
+    const headers = rows.length ? Object.keys(rows[0]) : [];
+    ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 2, 14) }));
+    return ws;
+  }
+
+  XLSX.utils.book_append_sheet(wb, makeSheet(empRows),   'Employees');
+  XLSX.utils.book_append_sheet(wb, makeSheet(docRows),   'Document Expiry');
+  XLSX.utils.book_append_sheet(wb, makeSheet(trainRows), 'Training');
+
+  // Admin gets finance sheets too
+  if(ROLE === 'admin'){
+    const advRows = advances.map(a => {
+      const e = getEmp(a.employee_id);
+      return {
+        'Employee No':   e.employee_number || '',
+        'Employee Name': `${e.first_name} ${e.last_name}`.trim(),
+        'Amount (AED)':  Number(a.amount) || 0,
+        'Date Given':    a.date_given || '',
+        'Reason':        a.reason || '',
+        'Repaid':        a.repaid ? 'Yes' : 'No',
+      };
+    });
+    const payRows = payments.map(p => {
+      const e = getEmp(p.employee_id);
+      return {
+        'Employee No':    e.employee_number || '',
+        'Employee Name':  `${e.first_name} ${e.last_name}`.trim(),
+        'Amount Paid (AED)': Number(p.amount_paid) || 0,
+        'Pay Period':     p.pay_period || '',
+        'Payment Date':   p.payment_date || '',
+        'Notes':          p.notes || '',
+      };
+    });
+    if(advRows.length) XLSX.utils.book_append_sheet(wb, makeSheet(advRows), 'Salary Advances');
+    if(payRows.length) XLSX.utils.book_append_sheet(wb, makeSheet(payRows), 'Salary Payments');
+  }
+
+  const date = new Date().toISOString().split('T')[0];
+  XLSX.writeFile(wb, `DocTrack_Export_${date}.xlsx`);
+  toast('Excel file downloaded');
+}
+
+function exportDocuments(){
+  if(!documents.length){toast('No documents to export','error');return;}
+
+  const rows = documents
+    .sort((a,b) => daysLeft(a.expiry_date) - daysLeft(b.expiry_date))
+    .map(d => {
+      const e = getEmp(d.employee_id);
+      const days = daysLeft(d.expiry_date);
+      return {
+        'Employee No':       e.employee_number || '',
+        'Employee Name':     `${e.first_name} ${e.last_name}`.trim(),
+        'Department':        e.department || '',
+        'Location':          e.location || '',
+        'Document Type':     d.doc_type || '',
+        'Document Number':   d.doc_number || '',
+        'Issue Date':        d.issue_date || '',
+        'Expiry Date':       d.expiry_date || '',
+        'Days Remaining':    days === 9999 ? '' : days,
+        'Status':            days < 0 ? 'Expired' : days <= 7 ? 'Critical' : days <= 30 ? 'Urgent' : days <= 90 ? 'Due Soon' : 'Active',
+        'Issuing Authority': d.issuing_authority || '',
+        'Notes':             d.notes || '',
+        'Employee Email':    e.email || '',
+        'Manager Email':     e.manager_email || '',
+      };
+    });
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const headers = Object.keys(rows[0]);
+  ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 2, 14) }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Document Expiry');
+
+  const date = new Date().toISOString().split('T')[0];
+  XLSX.writeFile(wb, `DocTrack_Documents_${date}.xlsx`);
+  toast('Excel file downloaded');
+}
+
+/* ════════════════════════════════════════════
+   INIT — smart first-run detection
+════════════════════════════════════════════ */
+window.addEventListener('load',()=>{
+  const setupDone = localStorage.getItem('dt_setup_done');
+  const hasUrl    = !!localStorage.getItem('dt_url');
+
+  if(!setupDone && !hasUrl){
+    // First time ever — show setup flow, hide login
+    document.getElementById('first-time-banner').style.display='block';
+    document.getElementById('setup-tabs-wrap').style.display='block';
+    document.getElementById('login-form-wrap').style.display='none';
+  } else {
+    // Returning user — show only login
+    document.getElementById('first-time-banner').style.display='none';
+    document.getElementById('setup-tabs-wrap').style.display='none';
+    document.getElementById('login-form-wrap').style.display='block';
+  }
+});
+</script>
+</body>
+</html>
+<script>
+/* ════════════════════════════════════════════
+   NETLIFY IDENTITY GATE
+   Wraps the entire app — nobody sees anything
+   until Netlify confirms they're an invited user
+════════════════════════════════════════════ */
+(function () {
+  // Hide everything until auth is confirmed
+  document.documentElement.style.visibility = 'hidden';
+
+  function onAuthConfirmed(user) {
+    if (user) {
+      // Valid Netlify session — show the app
+      document.documentElement.style.visibility = 'visible';
+    } else {
+      // Not logged in — open the Netlify login modal
+      document.documentElement.style.visibility = 'visible';
+      netlifyIdentity.open();
+    }
+  }
+
+  netlifyIdentity.on('init', user => onAuthConfirmed(user));
+
+  // After login via the widget, reload so the app initialises cleanly
+  netlifyIdentity.on('login', () => {
+    netlifyIdentity.close();
+    window.location.reload();
+  });
+
+  // After logout, show the login modal again
+  netlifyIdentity.on('logout', () => {
+    netlifyIdentity.open();
+  });
+
+  // Add a "Sign out of Netlify" option to the DocTrack logout button
+  const origLogout = window.logout;
+  window.logout = function () {
+    if (typeof origLogout === 'function') origLogout();
+    netlifyIdentity.logout();
+  };
+})();
+</script>
